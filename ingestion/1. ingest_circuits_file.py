@@ -4,6 +4,11 @@ v_data_source = dbutils.widgets.get("p_data_source")
 
 # COMMAND ----------
 
+dbutils.widgets.text("p_file_date", "2021-03-21") #default value is first folder date
+v_file_date = dbutils.widgets.get("p_file_date")
+
+# COMMAND ----------
+
 # MAGIC %run "../ingestion/includes/configuration"
 
 # COMMAND ----------
@@ -20,6 +25,7 @@ v_data_source = dbutils.widgets.get("p_data_source")
 # MAGIC %md
 # MAGIC ##### Read the csv using the spark dataframe reader
 # MAGIC 1. using folder specified in configuration file
+# MAGIC 1. using file date (for incremental load)
 # MAGIC 1. using header from csv
 # MAGIC 1. specifying schema manually
 # MAGIC 1. dropping the url column
@@ -52,7 +58,7 @@ circuits_schema = StructType(fields= [StructField("circuitId", IntegerType(), Fa
 
 # COMMAND ----------
 
-circuits_df = spark.read.csv(f"{raw_folder_path}/circuits.csv", 
+circuits_df = spark.read.csv(f"{raw_folder_path}/{v_file_date}/circuits.csv", 
                              header= True, 
                              schema= circuits_schema)
 
@@ -71,7 +77,8 @@ circuits_renamed_df = circuits_selected_df.withColumnRenamed("circuitID", "circu
                                         .withColumnRenamed("lat", "latitude") \
                                         .withColumnRenamed("long", "longitude") \
                                         .withColumnRenamed("alt", "altitude") \
-                                        .withColumn("data_source", lit(v_data_source))
+                                        .withColumn("data_source", lit(v_data_source))\
+                                        .withColumn("file date", lit(v_file_date))
 
 # COMMAND ----------
 
@@ -83,9 +90,13 @@ circuits_final_df = add_ingestion_date(circuits_renamed_df)
 # Writing data to Parquet file in Data lake
 #circuits_final_df.write.parquet(f"{processed_folder_path}/circuits", mode= 'overwrite')
 
-# Writing data to table in Data lake
+# Writing data to Parquet file & table in Data lake
 circuits_final_df.write.mode("overwrite").format("parquet").saveAsTable("f1_processed.circuits")
 
 # COMMAND ----------
 
 dbutils.notebook.exit("Success")
+
+# COMMAND ----------
+
+

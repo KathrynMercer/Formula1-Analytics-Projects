@@ -4,6 +4,11 @@ v_data_source = dbutils.widgets.get("p_data_source")
 
 # COMMAND ----------
 
+dbutils.widgets.text("p_file_date", "2021-03-28")
+v_file_date = dbutils.widgets.get("p_file_date")
+
+# COMMAND ----------
+
 # MAGIC %run "../ingestion/includes/configuration"
 
 # COMMAND ----------
@@ -46,14 +51,15 @@ pitstops_schema = StructType(fields= [StructField("raceId", IntegerType(), False
 # COMMAND ----------
 
 # reading json file using above schema
-pitstops_df = spark.read.json(f"{raw_folder_path}/pit_stops.json", schema= pitstops_schema, multiLine= True)
+pitstops_df = spark.read.json(f"{raw_folder_path}/{v_file_date}/pit_stops.json", schema= pitstops_schema, multiLine= True)
 
 # COMMAND ----------
 
 # renaming columns + adding data source column
 pitstops_renamed_df = pitstops_df.withColumnRenamed("raceId", "race_id") \
                                 .withColumnRenamed("driverId", "driver_id") \
-                                .withColumn("data_source", lit(v_data_source))
+                                .withColumn("data_source", lit(v_data_source)) \
+                                .withColumn("file_date", lit(v_file_date))
 
 # COMMAND ----------
 
@@ -63,11 +69,10 @@ pitstops_ingestion_df = add_ingestion_date(pitstops_renamed_df)
 # COMMAND ----------
 
 # write to a parquet file, partitioned by race_id
-#pitstops_renamed_df.write.parquet(f"{processed_folder_path}/pitstops", mode="overwrite")
+#pitstops_ingestion_df.write.parquet(f"{processed_folder_path}/pitstops", mode="overwrite")
 
 # Writing data to table in Data lake
-pitstops_renamed_df.write.mode("overwrite").format("parquet").saveAsTable("f1_processed.pitstops")
+#pitstops_ingestion_df.write.mode("overwrite").format("parquet").saveAsTable("f1_processed.pitstops")
 
-# COMMAND ----------
-
-dbutils.notebook.exit("Success")
+#incremental load write to Data lake
+overwrite_partition(pitstops_ingestion_df, "f1_processed", "pitstops", "race_id") 

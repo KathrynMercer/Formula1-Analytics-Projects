@@ -4,6 +4,11 @@ v_data_source = dbutils.widgets.get("p_data_source")
 
 # COMMAND ----------
 
+dbutils.widgets.text("p_file_date", "2021-03-21") #default value is first folder date
+v_file_date = dbutils.widgets.get("p_file_date")
+
+# COMMAND ----------
+
 # MAGIC %run "../ingestion/includes/configuration"
 
 # COMMAND ----------
@@ -20,6 +25,7 @@ v_data_source = dbutils.widgets.get("p_data_source")
 # MAGIC %md
 # MAGIC ##### Read the csv using the spark dataframe reader
 # MAGIC 1. using folder specified in configuration file
+# MAGIC 1. using file date (for incremental load)
 # MAGIC 1. using header from csv
 # MAGIC 1. specifying schema manually
 # MAGIC 1. renaming the columns to match conventions
@@ -52,7 +58,7 @@ races_schema = StructType(fields= [StructField("raceId", IntegerType(), False),
 
 # COMMAND ----------
 
-races_df = spark.read.csv(f'{raw_folder_path}/races.csv', header= True, schema = races_schema)
+races_df = spark.read.csv(f'{raw_folder_path}/{v_file_date}/races.csv', header= True, schema = races_schema)
 
 # COMMAND ----------
 
@@ -61,7 +67,8 @@ races_df = spark.read.csv(f'{raw_folder_path}/races.csv', header= True, schema =
 races_renamed_df = races_df.withColumnRenamed("raceId", "race_id") \
                             .withColumnRenamed("year", "race_year") \
                             .withColumnRenamed("circuitId", "circuit_id") \
-                            .withColumn("data_source", lit(v_data_source))
+                            .withColumn("data_source", lit(v_data_source))\
+                            .withColumn("file date", lit(v_file_date))
 
 # COMMAND ----------
 

@@ -1,5 +1,10 @@
 # Databricks notebook source
-# MAGIC %run "../../Formula 1/ingestion/includes/configuration"
+# MAGIC %run "../../Formula1-Analytics-Projects/ingestion/includes/configuration"
+
+# COMMAND ----------
+
+dbutils.widgets.text("p_file_date", "2021-03-21") #default value is first folder date
+v_file_date = dbutils.widgets.get("p_file_date")
 
 # COMMAND ----------
 
@@ -24,11 +29,15 @@ from pyspark.sql.functions import current_timestamp, desc
 # COMMAND ----------
 
 # reading all tables necessary (filtered by year = 2020)
+#full load data
 races_df = spark.read.parquet(f"{processed_folder_path}/races")
 circuits_df = spark.read.parquet(f"{processed_folder_path}/circuits")
 drivers_df = spark.read.parquet(f"{processed_folder_path}/drivers")
 teams_df = spark.read.parquet(f"{processed_folder_path}/constructors")
-results_df = spark.read.parquet(f"{processed_folder_path}/results")
+
+# incremental load data
+results_df = spark.read.parquet(f"{processed_folder_path}/results") \
+    .filter(f"file_date = '{v_file_date}'")
 
 # COMMAND ----------
 

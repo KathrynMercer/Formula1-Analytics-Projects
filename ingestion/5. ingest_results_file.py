@@ -4,6 +4,11 @@ v_data_source = dbutils.widgets.get("p_data_source")
 
 # COMMAND ----------
 
+dbutils.widgets.text("p_file_date", "2021-03-28")
+v_file_date = dbutils.widgets.get("p_file_date")
+
+# COMMAND ----------
+
 # MAGIC %run "../ingestion/includes/configuration"
 
 # COMMAND ----------
@@ -58,7 +63,7 @@ results_schema = StructType(fields= [StructField("resultId", IntegerType(), Fals
 # COMMAND ----------
 
 # reading json file using above schema
-results_df = spark.read.json(f"{raw_folder_path}/results.json", schema= results_schema)
+results_df = spark.read.json(f"{raw_folder_path}/{v_file_date}/results.json", schema= results_schema)
 
 # COMMAND ----------
 
@@ -72,7 +77,8 @@ results_renamed_df = results_df.withColumnRenamed("resultId", "result_id") \
                                 .withColumnRenamed("fastestLap", "fastest_lap") \
                                 .withColumnRenamed("fastestLapTime", "fastest_lap_time") \
                                 .withColumnRenamed("fastestLapSpeed", "fastest_lap_speed") \
-                                .withColumn("data_source", lit(v_data_source))
+                                .withColumn("data_source", lit(v_data_source))\
+                                .withColumn("file_date", lit(v_file_date))
 
 # COMMAND ----------
 
@@ -86,11 +92,35 @@ results_dropped_df = results_ingestion_date_df.drop("statusId")
 
 # COMMAND ----------
 
-# write to a parquet file, partitioned by race_id
-#results_dropped_df.write.parquet(f"{processed_folder_path}/results", mode="overwrite", partitionBy= "race_id")
+# MAGIC %md
+# MAGIC First implementation of incremental load using
+# MAGIC drop  if race_id already exists in table (less efficient w/ partitions)
 
-# Writing data to table in Data lake
-results_dropped_df.write.mode("overwrite").format("parquet").partitionBy(["race_id"]).saveAsTable("f1_processed.results")
+# COMMAND ----------
+
+# # determine what race_ids are contained within the dataframe,
+# # drop them if they are already in the processed results, so they can be added below 
+# # without introducting duplicates
+# for race_id_list in results_dropped_df.select("race_id").distinct().collect():
+#     if (spark._jsparkSession.catalog().tableExists("f1_processed.results")):
+#         spark.sql("ALTER TABLE f1_processed.results DROP IF EXISTS PARTITION (race_id = {race_id_list.race_id})")
+
+# COMMAND ----------
+
+# # write to a parquet file, partitioned by race_id
+# #results_dropped_df.write.parquet(f"{processed_folder_path}/results", mode="overwrite", partitionBy= "race_id")
+
+# # Writing data to table in Data lake (using append for incremental load via race_id)
+# results_dropped_df.write.mode("append").format("parquet").partitionBy(["race_id"]).saveAsTable("f1_processed.results")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC New incremental load implementation w/ dynamic overwrite
+
+# COMMAND ----------
+
+overwrite_partition(results_dropped_df, "f1_processed", "results", "race_id") 
 
 # COMMAND ----------
 

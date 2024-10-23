@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %run "../../Formula 1/ingestion/includes/configuration"
+# MAGIC %run "../../Formula1-Analytics-Projects/ingestion/includes/configuration"
 
 # COMMAND ----------
 

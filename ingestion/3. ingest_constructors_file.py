@@ -4,6 +4,11 @@ v_data_source = dbutils.widgets.get("p_data_source")
 
 # COMMAND ----------
 
+dbutils.widgets.text("p_file_date", "2021-03-21") #default value is first folder date
+v_file_date = dbutils.widgets.get("p_file_date")
+
+# COMMAND ----------
+
 # MAGIC %run "../ingestion/includes/configuration"
 
 # COMMAND ----------
@@ -20,6 +25,7 @@ v_data_source = dbutils.widgets.get("p_data_source")
 # MAGIC %md
 # MAGIC ##### Read the json using the spark dataframe reader
 # MAGIC 1. using folder specified in configuration file
+# MAGIC 1. using file date (for incremental load)
 # MAGIC 1. specifying schema via .DDL-formatted string
 # MAGIC 1. dropping the url column
 # MAGIC 1. renaming the columns to match conventions
@@ -40,7 +46,7 @@ constructors_schema = "constructorId INT, constructorRef STRING, name STRING, na
 # COMMAND ----------
 
 # reading json file using above schema
-constructors_df = spark.read.json(f"{raw_folder_path}/constructors.json", schema= constructors_schema)
+constructors_df = spark.read.json(f"{raw_folder_path}/{v_file_date}/constructors.json", schema= constructors_schema)
 
 # COMMAND ----------
 
@@ -53,7 +59,8 @@ constructors_dropped_df = constructors_df.drop("url")
 constructors_renamed_df = constructors_dropped_df.withColumnRenamed("constructorId", "constructor_id") \
                                                  .withColumnRenamed("constructorRef", "constructor_ref") \
                                                  .withColumnRenamed("name", "constructor_name") \
-                                                 .withColumn("data_source", lit(v_data_source))
+                                                 .withColumn("data_source", lit(v_data_source)) \
+                                                 .withColumn("file date", lit(v_file_date))
 
 # COMMAND ----------
 
